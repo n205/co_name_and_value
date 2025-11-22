@@ -1,0 +1,6 @@
+Flask==2.2.5
+google-cloud-storage
+google-cloud-logging
+google-cloud-secret-manager
+requests
+pypdf
