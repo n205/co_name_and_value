@@ -6,6 +6,7 @@ from google.oauth2 import service_account
 import logging
 
 from read_sheet import read_sheet
+from update_組織名 import update_company_name_t
 
 # Cloud Logging に出力するよう設定
 logging.basicConfig(level=logging.INFO)
