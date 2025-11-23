@@ -65,8 +65,8 @@ def extract_company_name_from_text(pdf_bytes):
 
 
 # --- メイン処理 ---
-def update_company_name_t(worksheet):
-    logging.info("🏢 update_company_name_t 開始")
+def update_組織名T(worksheet):
+    logging.info("🏢 update_組織名T 開始")
 
     df = get_as_dataframe(worksheet)
     df.fillna('', inplace=True)
