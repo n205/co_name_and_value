@@ -16,7 +16,7 @@ def init_gemini():
     if not api_key:
         raise RuntimeError("環境変数 GEMINI_API_KEY が設定されていません")
     genai.configure(api_key=api_key)
-    return genai.GenerativeModel("gemini-2.0-flash")
+    return genai.GenerativeModel("gemini-2.5-flash")
 
 text_model = None
 
@@ -47,7 +47,7 @@ def extract_value_from_text(pdf_bytes):
         この中から企業が提示している「バリュー」「行動指針」「価値観」「行動規範」に該当する内容を150文字以内で要約してください。
 
         ・社員がどのような行動や姿勢を求められているかを優先
-        ・説明文、前置き、ラベルは禁止
+        ・説明文、前置き、ラベルは不要
         ・内容そのものだけを返す
         ・取得できない場合は「取得失敗」
         """
