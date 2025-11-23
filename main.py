@@ -29,6 +29,7 @@ def main():
     update_組織名G(worksheet)
     update_組織名(worksheet)    
     update_証券番号(worksheet)
+    update_バリューT(worksheet)
     
     return 'Cloud Run Function executed.', 200
 
