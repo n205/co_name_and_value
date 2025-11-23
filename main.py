@@ -11,6 +11,7 @@ from update_組織名 import update_組織名G
 from update_組織名 import update_組織名
 from update_組織名 import update_証券番号
 from update_価値ある活動 import update_バリューT
+from update_価値ある活動 import update_バリューG
 
 
 # Cloud Logging に出力するよう設定
@@ -30,6 +31,7 @@ def main():
     update_組織名(worksheet)    
     update_証券番号(worksheet)
     update_バリューT(worksheet)
+    update_バリューG(worksheet)
     
     return 'Cloud Run Function executed.', 200
 
