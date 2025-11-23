@@ -300,3 +300,90 @@ def update_組織名(worksheet):
 
     logging.info(f"📄 {update_count} 件の会社名を「会社名」列に更新")
     return f"{update_count} 件更新", 200
+
+
+def update_証券番号(worksheet):
+    logging.info("💹 update_証券番号（証券番号推定）開始")
+
+    global text_model
+    if text_model is None:
+        text_model = init_gemini()
+
+    df = get_as_dataframe(worksheet)
+    df.fillna('', inplace=True)
+
+    # 「証券番号」列がなければ作成
+    if '証券番号' not in df.columns:
+        df['証券番号'] = ''
+
+    update_count = 0
+
+    for idx, row in df.iterrows():
+        company = row.get("会社名", "").strip()
+        current_code = row.get("証券番号", "").strip()
+
+        # すでに証券番号がある → スキップ
+        if current_code:
+            continue
+
+        # 会社名が対象外なら、そのまま対象外
+        if company in ["対象外", "取得失敗", ""]:
+            df.at[idx, "証券番号"] = "対象外"
+            update_count += 1
+            logging.info(f"⏭️ 対象外としてスキップ: {company}")
+            continue
+
+        # Gemini による証券番号推定
+        try:
+            prompt = f"""
+            以下の会社名から、日本の証券コード（4桁）を推定してください。
+
+            条件:
+            - 出力は4桁のみ
+            - 証券コードが存在しない企業の場合は「対象外」
+            - 説明・補足は不要
+
+            会社名: {company}
+            """
+
+            response = text_model.generate_content(prompt)
+            code = response.text.strip()
+
+            # 4桁なら採用
+            if code.isdigit() and len(code) == 4:
+                df.at[idx, "証券番号"] = code
+                update_count += 1
+                logging.info(f"✅ {company} → {code}")
+            else:
+                df.at[idx, "証券番号"] = "対象外"
+                update_count += 1
+                logging.info(f"⚠️ 番号不明: {company} → {code}")
+
+        except Exception as e:
+            df.at[idx, "証券番号"] = "対象外"
+            update_count += 1
+            logging.warning(f"❌ エラー → 対象外扱い: {e} → {company}")
+
+    # NaN/inf → 空白に
+    df.replace([np.nan, np.inf, -np.inf], '', inplace=True)
+
+    # 列番号 → Excel 列記号（AA対応）
+    def column_index_to_letter(index):
+        letters = ""
+        while index >= 0:
+            index, remainder = divmod(index, 26)
+            letters = chr(65 + remainder) + letters
+            index -= 1
+        return letters
+
+    col_index = df.columns.get_loc("証券番号")
+    col_letter = column_index_to_letter(col_index)
+
+    # シート更新
+    worksheet.update(
+        f"{col_letter}2:{col_letter}{len(df)+1}",
+        [[v] for v in df["証券番号"].tolist()]
+    )
+
+    logging.info(f"📄 {update_count} 件の証券番号を更新")
+    return f"{update_count} 件更新", 200
