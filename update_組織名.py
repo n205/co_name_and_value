@@ -8,6 +8,7 @@ import warnings
 from gspread_dataframe import get_as_dataframe
 import google.generativeai as genai
 import os
+import gc
 
 
 # -------------------------------
@@ -33,14 +34,15 @@ def extract_company_name_from_text(pdf_bytes):
     if text_model is None:
         text_model = init_gemini()
 
+    reader = None
     try:
         reader = PdfReader(BytesIO(pdf_bytes))
-        all_text = ''
+        all_text = ""
 
         for i in range(min(3, len(reader.pages))):
             text = reader.pages[i].extract_text()
             if text:
-                all_text += text + '\n'
+                all_text += text + "\n"
 
         if not all_text.strip():
             return "取得失敗"
@@ -63,6 +65,12 @@ def extract_company_name_from_text(pdf_bytes):
     except Exception as e:
         logging.warning(f"Geminiテキスト処理失敗: {e}")
         return "取得失敗"
+
+    finally:
+        # ---- メモリ解放 ----
+        del reader
+        del pdf_bytes
+        gc.collect()
 
 
 def update_組織名T(worksheet):
@@ -127,8 +135,9 @@ def extract_company_name_from_pdf_image(pdf_bytes):
     if image_model is None:
         image_model = init_gemini()
 
+    images = None
     try:
-        images = convert_from_bytes(pdf_bytes, dpi=200, first_page=1, last_page=3)
+        images = convert_from_bytes(pdf_bytes, dpi=150, first_page=1, last_page=3)
 
         prompt = """
         これは統合報告書の最初の数ページの画像です。
@@ -148,6 +157,19 @@ def extract_company_name_from_pdf_image(pdf_bytes):
     except Exception as e:
         warnings.warn(f"Gemini画像処理失敗: {e}")
         return "取得失敗"
+
+    finally:
+        # ---- 画像メモリ解放 ----
+        if images:
+            for img in images:
+                try:
+                    img.close()
+                except:
+                    pass
+            del images
+
+        del pdf_bytes
+        gc.collect()
 
 
 def update_組織名G(worksheet):
@@ -189,7 +211,7 @@ def update_組織名G(worksheet):
 
         update_count += 1
 
-    # シートへ反映
+    # シート更新
     df.replace([np.nan, np.inf, -np.inf], '', inplace=True)
     col_index = df.columns.get_loc('会社名G')
     col_letter = chr(ord('A') + col_index)
@@ -203,10 +225,12 @@ def update_組織名G(worksheet):
     return f"{update_count} 件更新", 200
 
 
+# ============================================================
+#  3) T/G統合 → 会社名
+# ============================================================
 def update_組織名(worksheet):
     logging.info("🏢 update_組織名（T/G統合処理）開始")
 
-    # Geminiモデルを初期化（共通関数）
     global text_model
     if text_model is None:
         text_model = init_gemini()
@@ -220,7 +244,6 @@ def update_組織名(worksheet):
 
     update_count = 0
 
-    # 無効値かどうかを判定する関数
     def is_invalid(name):
         return name in ['', '取得失敗', '対象外']
 
@@ -229,22 +252,15 @@ def update_組織名(worksheet):
         name_g = row.get('会社名G', '').strip()
         current = row.get('会社名', '').strip()
 
-        # すでに決定済みはスキップ
         if current:
             continue
 
-        # ------------------------
-        # ① 両方無効 → 対象外
-        # ------------------------
         if is_invalid(name_t) and is_invalid(name_g):
             df.at[idx, '会社名'] = '対象外'
             update_count += 1
-            logging.info(f"⏭️ 対象外（両方無効）")
+            logging.info("⏭️ 対象外（両方無効）")
             continue
 
-        # ------------------------
-        # ② 片方のみ有効 → 採用
-        # ------------------------
         if not is_invalid(name_t) and is_invalid(name_g):
             df.at[idx, '会社名'] = name_t
             update_count += 1
@@ -257,20 +273,17 @@ def update_組織名(worksheet):
             logging.info(f"✅ 単独採用（G）: {name_g}")
             continue
 
-        # ------------------------
-        # ③ 両方有効 → Gemini に判断させる
-        # ------------------------
+        # 両方有効 → Gemini 判定
         try:
             prompt = f"""
-            次の2つの会社名候補のうち、証券コードと紐付けしやすい
-            「正式な会社名」として適切なものを1つ選んでください。
+            次の2つの会社名候補のうち、
+            より正式な会社名として適切なものを選んでください。
 
             - {name_t}
             - {name_g}
 
             条件:
-            - より一般的・正式に見える名称を選ぶ
-            - 選んだ名前のみ1行で返す（余計な説明禁止）
+            - 選んだ名前のみ1行で返す
             """
 
             response = text_model.generate_content(prompt)
@@ -281,15 +294,13 @@ def update_組織名(worksheet):
                 update_count += 1
                 logging.info(f"🧠 Gemini判断: {best_name}")
             else:
-                logging.warning(f"⚠️ Gemini判定不能: {best_name}")
+                logging.warning(f"⚠️ 判定不能: {best_name}")
 
         except Exception as e:
             logging.warning(f"Gemini判断失敗: {e}")
 
-    # NaNを空文字へ
+    # シート更新
     df.replace([np.nan, np.inf, -np.inf], '', inplace=True)
-
-    # シート更新（会社名列のみ）
     col_index = df.columns.get_loc('会社名')
     col_letter = chr(ord('A') + col_index)
 
@@ -298,12 +309,15 @@ def update_組織名(worksheet):
         [[v] for v in df['会社名'].tolist()]
     )
 
-    logging.info(f"📄 {update_count} 件の会社名を「会社名」列に更新")
+    logging.info(f"📄 {update_count} 件の会社名を更新")
     return f"{update_count} 件更新", 200
 
 
+# ============================================================
+#  4) 証券番号推定
+# ============================================================
 def update_証券番号(worksheet):
-    logging.info("💹 update_証券番号（証券番号推定）開始")
+    logging.info("💹 update_証券番号開始")
 
     global text_model
     if text_model is None:
@@ -312,7 +326,6 @@ def update_証券番号(worksheet):
     df = get_as_dataframe(worksheet)
     df.fillna('', inplace=True)
 
-    # 「証券番号」列がなければ作成
     if '証券番号' not in df.columns:
         df['証券番号'] = ''
 
@@ -322,26 +335,23 @@ def update_証券番号(worksheet):
         company = row.get("会社名", "").strip()
         current_code = row.get("証券番号", "").strip()
 
-        # すでに証券番号がある → スキップ
         if current_code:
             continue
 
-        # 会社名が対象外なら、そのまま対象外
         if company in ["対象外", "取得失敗", ""]:
             df.at[idx, "証券番号"] = "対象外"
             update_count += 1
-            logging.info(f"⏭️ 対象外としてスキップ: {company}")
+            logging.info(f"⏭️ 対象外扱い: {company}")
             continue
 
-        # Gemini による証券番号推定
         try:
             prompt = f"""
-            以下の会社名から、日本の証券コード（4桁）を推定してください。
+            以下の会社名から日本の証券コード（4桁）を推定してください。
 
             条件:
             - 出力は4桁のみ
-            - 証券コードが存在しない企業の場合は「対象外」
-            - 説明・補足は不要
+            - 存在しない場合は「対象外」
+            - 補足説明禁止
 
             会社名: {company}
             """
@@ -349,7 +359,6 @@ def update_証券番号(worksheet):
             response = text_model.generate_content(prompt)
             code = response.text.strip()
 
-            # 4桁なら採用
             if code.isdigit() and len(code) == 4:
                 df.at[idx, "証券番号"] = code
                 update_count += 1
@@ -357,17 +366,16 @@ def update_証券番号(worksheet):
             else:
                 df.at[idx, "証券番号"] = "対象外"
                 update_count += 1
-                logging.info(f"⚠️ 番号不明: {company} → {code}")
+                logging.info(f"⚠️ 不明 → 対象外: {company} → {code}")
 
         except Exception as e:
             df.at[idx, "証券番号"] = "対象外"
             update_count += 1
-            logging.warning(f"❌ エラー → 対象外扱い: {e} → {company}")
+            logging.warning(f"❌ エラー → 対象外扱い: {e}")
 
-    # NaN/inf → 空白に
+    # シート更新
     df.replace([np.nan, np.inf, -np.inf], '', inplace=True)
 
-    # 列番号 → Excel 列記号（AA対応）
     def column_index_to_letter(index):
         letters = ""
         while index >= 0:
@@ -379,7 +387,6 @@ def update_証券番号(worksheet):
     col_index = df.columns.get_loc("証券番号")
     col_letter = column_index_to_letter(col_index)
 
-    # シート更新
     worksheet.update(
         f"{col_letter}2:{col_letter}{len(df)+1}",
         [[v] for v in df["証券番号"].tolist()]
