@@ -20,6 +20,8 @@ def main():
     # スプレッドシート読込
     worksheet, existing_df, processed_urls = read_sheet()
 
+    update_company_name_t(worksheet)
+
     return 'Cloud Run Function executed.', 200
 
 
