@@ -10,6 +10,7 @@ from update_組織名 import update_組織名T
 from update_組織名 import update_組織名G
 from update_組織名 import update_組織名
 from update_組織名 import update_証券番号
+from update_価値ある活動 import update_バリューT
 
 
 # Cloud Logging に出力するよう設定
