@@ -6,7 +6,7 @@ from google.oauth2 import service_account
 import logging
 
 from read_sheet import read_sheet
-from update_組織名 import update_company_name_t
+from update_組織名 import update_組織名T
 
 # Cloud Logging に出力するよう設定
 logging.basicConfig(level=logging.INFO)
@@ -20,7 +20,7 @@ def main():
     # スプレッドシート読込
     worksheet, existing_df, processed_urls = read_sheet()
 
-    update_company_name_t(worksheet)
+    update_組織名T(worksheet)
 
     return 'Cloud Run Function executed.', 200
 
