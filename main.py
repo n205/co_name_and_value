@@ -6,9 +6,9 @@ from google.oauth2 import service_account
 import logging
 
 from read_sheet import read_sheet
-from update_組織名 import update_組織名T
-from update_組織名 import update_組織名G
-from update_組織名 import update_組織名
+#from update_組織名 import update_組織名T
+#from update_組織名 import update_組織名G
+#from update_組織名 import update_組織名
 from update_組織名 import update_証券番号
 
 
