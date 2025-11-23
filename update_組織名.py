@@ -201,3 +201,102 @@ def update_組織名G(worksheet):
 
     logging.info(f"📄 {update_count} 件の会社名G更新")
     return f"{update_count} 件更新", 200
+
+
+def update_組織名(worksheet):
+    logging.info("🏢 update_組織名（T/G統合処理）開始")
+
+    # Geminiモデルを初期化（共通関数）
+    global text_model
+    if text_model is None:
+        text_model = init_gemini()
+
+    df = get_as_dataframe(worksheet)
+    df.fillna('', inplace=True)
+
+    # 「会社名」列がなければ作成
+    if '会社名' not in df.columns:
+        df['会社名'] = ''
+
+    update_count = 0
+
+    # 無効値かどうかを判定する関数
+    def is_invalid(name):
+        return name in ['', '取得失敗', '対象外']
+
+    for idx, row in df.iterrows():
+        name_t = row.get('会社名T', '').strip()
+        name_g = row.get('会社名G', '').strip()
+        current = row.get('会社名', '').strip()
+
+        # すでに決定済みはスキップ
+        if current:
+            continue
+
+        # ------------------------
+        # ① 両方無効 → 対象外
+        # ------------------------
+        if is_invalid(name_t) and is_invalid(name_g):
+            df.at[idx, '会社名'] = '対象外'
+            update_count += 1
+            logging.info(f"⏭️ 対象外（両方無効）")
+            continue
+
+        # ------------------------
+        # ② 片方のみ有効 → 採用
+        # ------------------------
+        if not is_invalid(name_t) and is_invalid(name_g):
+            df.at[idx, '会社名'] = name_t
+            update_count += 1
+            logging.info(f"✅ 単独採用（T）: {name_t}")
+            continue
+
+        if not is_invalid(name_g) and is_invalid(name_t):
+            df.at[idx, '会社名'] = name_g
+            update_count += 1
+            logging.info(f"✅ 単独採用（G）: {name_g}")
+            continue
+
+        # ------------------------
+        # ③ 両方有効 → Gemini に判断させる
+        # ------------------------
+        try:
+            prompt = f"""
+            次の2つの会社名候補のうち、証券コードと紐付けしやすい
+            「正式な会社名」として適切なものを1つ選んでください。
+
+            - {name_t}
+            - {name_g}
+
+            条件:
+            - より一般的・正式に見える名称を選ぶ
+            - 選んだ名前のみ1行で返す（余計な説明禁止）
+            """
+
+            response = text_model.generate_content(prompt)
+            best_name = response.text.strip()
+
+            if best_name in [name_t, name_g]:
+                df.at[idx, '会社名'] = best_name
+                update_count += 1
+                logging.info(f"🧠 Gemini判断: {best_name}")
+            else:
+                logging.warning(f"⚠️ Gemini判定不能: {best_name}")
+
+        except Exception as e:
+            logging.warning(f"Gemini判断失敗: {e}")
+
+    # NaNを空文字へ
+    df.replace([np.nan, np.inf, -np.inf], '', inplace=True)
+
+    # シート更新（会社名列のみ）
+    col_index = df.columns.get_loc('会社名')
+    col_letter = chr(ord('A') + col_index)
+
+    worksheet.update(
+        f"{col_letter}2:{col_letter}{len(df)+1}",
+        [[v] for v in df['会社名'].tolist()]
+    )
+
+    logging.info(f"📄 {update_count} 件の会社名を「会社名」列に更新")
+    return f"{update_count} 件更新", 200
