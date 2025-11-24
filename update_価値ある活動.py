@@ -239,103 +239,97 @@ def update_バリューG(worksheet):
 
 
 # ============================================================
-#  バリュー統合処理
+#  3) バリュー統合（T + G → バリュー）
 # ============================================================
+
+merge_model = None
+
 def merge_values(value_t, value_g):
-    """T/G を統合して1つのバリューを作成"""
+    """バリューT と バリューG を統合して最終バリューを返す"""
+    global merge_model
+    if merge_model is None:
+        merge_model = init_gemini()
 
-    def is_valid(v):
-        return v and v not in ["取得失敗", "対象外"]
+    def is_valid(val):
+        return val and val not in ["取得失敗", "対象外"]
 
-    # 片方だけ有効 → それだけを採用
+    # 片方だけ有効 → そのまま採用
     if is_valid(value_t) and not is_valid(value_g):
         return value_t
 
     if is_valid(value_g) and not is_valid(value_t):
         return value_g
 
-    # 両方無効
-    if not is_valid(value_t) and not is_valid(value_g):
-        return "取得失敗"
-
     # 両方有効 → Gemini で統合
-    global merge_model
-    if merge_model is None:
-        merge_model = init_merge_model()
+    if is_valid(value_t) and is_valid(value_g):
+        try:
+            prompt = f"""
+以下は企業の統合報告書から抽出した2つの要素です。
 
-    prompt = f"""
-    次の2つの抽出結果をもとに、企業の「バリュー」「価値観」「行動指針」に該当する内容を
-    200文字以内で統合してください。
+- 抽出1: {value_t}
+- 抽出2: {value_g}
 
-    ---
-    抽出1: {value_t}
-    抽出2: {value_g}
-    ---
+これらを元に企業の「バリュー」「行動指針」「価値観」にあたる内容を200文字以内で統合してください。
+・ラベルや説明文は禁止。内容のみ返してください。
+・社員がどう行動すべきかが伝わる内容を優先してください。
+・うまく統合できない場合「取得失敗」と返すこと。
+・70文字未満になってしまう場合も「取得失敗」と返すこと。
+"""
+            response = merge_model.generate_content(prompt)
+            result = response.text.strip()
 
-    条件:
-    ・説明文やラベルは不要、内容だけを返す
-    ・社員に求められる姿勢や行動が伝わる内容を優先
-    ・70文字未満の場合は「取得失敗」と返す
-    ・統合に失敗した場合も「取得失敗」と返す
-    """
+            if not result or len(result) < 70:
+                return "取得失敗"
+            return result
 
-    try:
-        res = merge_model.generate_content(prompt)
-        result = res.text.strip()
-
-        if not result or len(result) < 70:
+        except Exception as e:
+            logging.warning(f"❌ Geminiマージ失敗: {e}")
             return "取得失敗"
 
-        return result
-
-    except Exception as e:
-        logging.warning(f"❌ Geminiマージ失敗: {e}")
-        return "取得失敗"
+    # どちらも無効
+    return "取得失敗"
 
 
-# ============================================================
-#  update_バリュー
-# ============================================================
+# ------------------------------------------------------------
+# update_バリュー
+# ------------------------------------------------------------
 def update_バリュー(worksheet):
-
     logging.info("🔄 update_バリュー 開始")
 
     df = get_as_dataframe(worksheet)
-    df.fillna('', inplace=True)
+    df.fillna("", inplace=True)
 
-    # 列がなければ追加
     if "バリュー" not in df.columns:
         df["バリュー"] = ""
 
     update_count = 0
 
     for idx, row in df.iterrows():
-        current = row.get("バリュー", "")
+        val_final = row.get("バリュー", "")
         company = row.get("会社名", "")
+        url = row.get("URL", "")
 
-        # すでに入力済みなら飛ばす
-        if current:
+        # 既に値が入っていればスキップ
+        if val_final:
             continue
 
-        # 対象外企業
+        # 対象外ならそのまま
         if company == "対象外":
             df.at[idx, "バリュー"] = "対象外"
             update_count += 1
-            logging.info(f"⏭️ 対象外（会社名）: {row.get('URL', '')}")
+            logging.info(f"⏭️ 対象外（会社名）: {url}")
             continue
 
         merged = merge_values(row.get("バリューT", ""), row.get("バリューG", ""))
         df.at[idx, "バリュー"] = merged
         update_count += 1
-
-        short = merged[:30] + ("…" if len(merged) > 30 else "")
-        logging.info(f"📝 {row.get('URL', '')} → {short}")
+        logging.info(f"📝 統合: {url} → {merged[:30]}...")
 
     df.replace([np.nan, np.inf, -np.inf], "", inplace=True)
 
-    # Excel列名変換（AA対応）
+    # Excel列名計算（既存方式）
     def col_to_letter(index):
-        letters = ''
+        letters = ""
         while index >= 0:
             index, rem = divmod(index, 26)
             letters = chr(65 + rem) + letters
@@ -347,9 +341,8 @@ def update_バリュー(worksheet):
 
     worksheet.update(
         f"{col_letter}2:{col_letter}{len(df)+1}",
-        [[v] for v in df["バリュー"].tolist()]
+        [[v] for v in df["バリュー"].tolist()],
     )
 
-    logging.info(f"📝 update_バリュー: {update_count} 件 更新完了")
-
+    logging.info(f"📝 {update_count} 件のバリューを更新しました")
     return f"{update_count} 件更新", 200
