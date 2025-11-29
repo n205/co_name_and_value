@@ -19,7 +19,7 @@ def init_gemini():
     if not api_key:
         raise RuntimeError("環境変数 GEMINI_API_KEY が設定されていません")
     genai.configure(api_key=api_key)
-    return genai.GenerativeModel("gemini-2.0-flash")
+    return genai.GenerativeModel("gemini-2.5-flash")
 
 
 text_model = None
