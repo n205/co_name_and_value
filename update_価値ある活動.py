@@ -272,7 +272,7 @@ def merge_values(value_t, value_g):
 ・ラベルや説明文は禁止。内容のみ返す
 ・社員がどう行動すべきかが伝わる内容を優先
 ・うまく統合できない場合「取得失敗」と返す
-・文字数が合計100文字未満になってしまう場合「取得失敗」とだけ返す
+・統合後の文字数の合計が100文字未満の場合は「取得失敗」と返す
 """
             response = merge_model.generate_content(prompt)
             result = response.text.strip()
