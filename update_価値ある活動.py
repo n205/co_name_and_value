@@ -20,7 +20,6 @@ def init_gemini():
     genai.configure(api_key=api_key)
     return genai.GenerativeModel("gemini-2.5-flash")
 
-
 text_model = None
 image_model = None
 
