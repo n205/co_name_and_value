@@ -2,6 +2,7 @@ Flask==2.2.5
 requests
 pypdf
 cryptography>=42.0.0
+gunicorn
 
 pandas
 gspread
