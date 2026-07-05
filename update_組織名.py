@@ -77,7 +77,7 @@ def update_組織名T(worksheet):
     logging.info("🏢 update_組織名T開始")
 
     df = get_as_dataframe(worksheet)
-    df.fillna('', inplace=True)
+    df = df.astype(object).fillna('')
 
     update_count = 0
 
@@ -176,7 +176,7 @@ def update_組織名G(worksheet):
     logging.info("🏢 update_組織名G開始")
 
     df = get_as_dataframe(worksheet)
-    df.fillna('', inplace=True)
+    df = df.astype(object).fillna('')
 
     update_count = 0
 
@@ -236,7 +236,7 @@ def update_組織名(worksheet):
         text_model = init_gemini()
 
     df = get_as_dataframe(worksheet)
-    df.fillna('', inplace=True)
+    df = df.astype(object).fillna('')
 
     # 「会社名」列がなければ作成
     if '会社名' not in df.columns:
@@ -324,7 +324,7 @@ def update_証券番号(worksheet):
         text_model = init_gemini()
 
     df = get_as_dataframe(worksheet)
-    df.fillna('', inplace=True)
+    df = df.astype(object).fillna('')
 
     if '証券番号' not in df.columns:
         df['証券番号'] = ''
