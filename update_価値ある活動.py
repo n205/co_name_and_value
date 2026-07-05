@@ -71,7 +71,7 @@ def update_バリューT(worksheet):
     logging.info("🧭 update_バリューT 開始")
 
     df = get_as_dataframe(worksheet)
-    df.fillna('', inplace=True)
+    df = df.astype(object).fillna('')
 
     if 'バリューT' not in df.columns:
         df['バリューT'] = ''
@@ -172,7 +172,7 @@ def update_バリューG(worksheet):
     logging.info("🖼️ update_バリューG 開始")
 
     df = get_as_dataframe(worksheet)
-    df.fillna('', inplace=True)
+    df = df.astype(object).fillna('')
 
     if 'バリューG' not in df.columns:
         df['バリューG'] = ''
