@@ -114,7 +114,7 @@ def update_組織名T(worksheet):
         update_count += 1
 
     # シート更新
-    df.replace([np.nan, np.inf, -np.inf], '', inplace=True)
+    df = df.replace([np.nan, np.inf, -np.inf], '')
     col_index = df.columns.get_loc('会社名T')
     col_letter = chr(ord('A') + col_index)
 
@@ -212,7 +212,7 @@ def update_組織名G(worksheet):
         update_count += 1
 
     # シート更新
-    df.replace([np.nan, np.inf, -np.inf], '', inplace=True)
+    df = df.replace([np.nan, np.inf, -np.inf], '')
     col_index = df.columns.get_loc('会社名G')
     col_letter = chr(ord('A') + col_index)
 
@@ -300,7 +300,7 @@ def update_組織名(worksheet):
             logging.warning(f"Gemini判断失敗: {e}")
 
     # シート更新
-    df.replace([np.nan, np.inf, -np.inf], '', inplace=True)
+    df = df.replace([np.nan, np.inf, -np.inf], '')
     col_index = df.columns.get_loc('会社名')
     col_letter = chr(ord('A') + col_index)
 
@@ -374,7 +374,7 @@ def update_証券番号(worksheet):
             logging.warning(f"❌ エラー → 対象外扱い: {e}")
 
     # シート更新
-    df.replace([np.nan, np.inf, -np.inf], '', inplace=True)
+    df = df.replace([np.nan, np.inf, -np.inf], '')
 
     def column_index_to_letter(index):
         letters = ""
