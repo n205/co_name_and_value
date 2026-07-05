@@ -295,7 +295,8 @@ def update_バリュー(worksheet):
     logging.info("🔄 update_バリュー 開始")
 
     df = get_as_dataframe(worksheet)
-    df.fillna("", inplace=True)
+    df = df.astype(object).fillna('')
+
 
     if "バリュー" not in df.columns:
         df["バリュー"] = ""
