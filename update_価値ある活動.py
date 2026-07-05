@@ -112,7 +112,7 @@ def update_バリューT(worksheet):
             update_count += 1
             logging.warning(f"❌ 例外発生 {e}: {url}")
 
-    df.replace([np.nan, np.inf, -np.inf], '', inplace=True)
+    df = df.replace([np.nan, np.inf, -np.inf], '')
 
     # Excel 列名変換
     def col_to_letter(index):
@@ -213,7 +213,7 @@ def update_バリューG(worksheet):
             update_count += 1
             logging.warning(f"❌ 例外発生 {e}: {url}")
 
-    df.replace([np.nan, np.inf, -np.inf], '', inplace=True)
+    df = df.replace([np.nan, np.inf, -np.inf], '')
 
     # Excel列名計算
     def col_to_letter(index):
