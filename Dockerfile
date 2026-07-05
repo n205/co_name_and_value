@@ -1,55 +1,50 @@
 FROM python:3.11-slim-bookworm
 
+ENV PYTHONUNBUFFERED=1
+
 WORKDIR /app
 
-# 必要な apt パッケージとフォントなど
+# 依存パッケージの完全網羅（前回の安定版と同一）
 RUN apt-get update && apt-get install -y \
-    libssl-dev \
-    libffi-dev \
-    python3-dev \
-    cargo \
     wget \
-    unzip \
     curl \
+    unzip \
     gnupg \
     ca-certificates \
+    libnss3 \
+    libxss1 \
+    libasound2 \
+    libxtst6 \
+    libgtk-3-0 \
+    libgbm1 \
     fonts-liberation \
     libappindicator3-1 \
-    libasound2 \
-    libatk-bridge2.0-0 \
-    libatk1.0-0 \
-    libcups2 \
-    libdbus-1-3 \
-    libgdk-pixbuf2.0-0 \
-    libnspr4 \
-    libnss3 \
-    libx11-xcb1 \
-    libxcomposite1 \
-    libxdamage1 \
-    libxrandr2 \
     xdg-utils \
     poppler-utils \
     --no-install-recommends && \
     rm -rf /var/lib/apt/lists/*
 
-# Chrome 137.0.7151.119 を直接インストール
-RUN wget -q https://dl.google.com/linux/deb/pool/main/g/google-chrome-stable/google-chrome-stable_137.0.7151.119-1_amd64.deb \
- && apt-get update \
- && apt-get install -y ./google-chrome-stable_137.0.7151.119-1_amd64.deb \
- && rm google-chrome-stable_137.0.7151.119-1_amd64.deb
+# Chrome for Testing (137.0.7151.119) 本体のインストール
+RUN wget -q -O /tmp/chrome.zip \
+    https://storage.googleapis.com/chrome-for-testing-public/137.0.7151.119/linux64/chrome-linux64.zip \
+ && unzip /tmp/chrome.zip -d /opt/ \
+ && ln -s /opt/chrome-linux64/chrome /usr/local/bin/google-chrome \
+ && chmod +x /opt/chrome-linux64/chrome \
+ && rm /tmp/chrome.zip
 
 # 対応 ChromeDriver のインストール
 RUN wget -q -O /tmp/chromedriver.zip \
     https://storage.googleapis.com/chrome-for-testing-public/137.0.7151.119/linux64/chromedriver-linux64.zip \
- && unzip /tmp/chromedriver.zip -d /tmp/ \
- && mv /tmp/chromedriver-linux64/chromedriver /usr/local/bin/chromedriver \
- && chmod +x /usr/local/bin/chromedriver \
- && rm -rf /tmp/chromedriver.zip /tmp/chromedriver-linux64
+ && unzip /tmp/chromedriver.zip -d /opt/ \
+ && ln -s /opt/chromedriver-linux64/chromedriver /usr/local/bin/chromedriver \
+ && chmod +x /opt/chromedriver-linux64/chromedriver \
+ && rm /tmp/chromedriver.zip
 
 # Python ライブラリ関連
 COPY requirements.txt requirements.txt
-RUN pip install --upgrade pip && pip install -r requirements.txt
+RUN pip install --upgrade pip && pip install --no-cache-dir -r requirements.txt
 
 COPY . /app
 
-CMD ["python", "main.py"]
+# 【重要】タイムアウトを600秒に伸ばしてGunicornで起動する構成へ変更
+CMD ["gunicorn", "--bind", "0.0.0.0:8080", "--workers", "1", "--timeout", "600", "main:app"]
