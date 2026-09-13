@@ -1,6 +1,7 @@
 import logging
 import requests
 import numpy as np
+import time  # タイムアウト計測用に追加
 from io import BytesIO
 from pypdf import PdfReader
 from pdf2image import convert_from_bytes
@@ -67,7 +68,8 @@ def extract_value_from_text(pdf_bytes):
 # ============================================================
 #  update_バリューT（テキスト）
 # ============================================================
-def update_バリューT(worksheet):
+# ★ 引数に start_time と time_limit を追加
+def update_バリューT(worksheet, start_time=None, time_limit=None):
     logging.info("🧭 update_バリューT 開始")
 
     df = get_as_dataframe(worksheet)
@@ -79,6 +81,13 @@ def update_バリューT(worksheet):
     update_count = 0
 
     for idx, row in df.iterrows():
+        # ★ タイムアウト判定処理
+        if start_time and time_limit:
+            elapsed = time.time() - start_time
+            if elapsed > time_limit:
+                logging.warning(f"⏳ 時間制限が近づきました ({int(elapsed)}秒経過)。バリューTの処理を中断し、書き込みに移行します。")
+                break
+
         url = row.get("URL", "")
         val_t = row.get("バリューT", "")
         company = row.get("会社名", "")
@@ -168,7 +177,8 @@ def extract_value_from_pdf(pdf_bytes):
 # ============================================================
 #  update_バリューG（画像）
 # ============================================================
-def update_バリューG(worksheet):
+# ★ 引数に start_time と time_limit を追加
+def update_バリューG(worksheet, start_time=None, time_limit=None):
     logging.info("🖼️ update_バリューG 開始")
 
     df = get_as_dataframe(worksheet)
@@ -180,6 +190,13 @@ def update_バリューG(worksheet):
     update_count = 0
 
     for idx, row in df.iterrows():
+        # ★ タイムアウト判定処理
+        if start_time and time_limit:
+            elapsed = time.time() - start_time
+            if elapsed > time_limit:
+                logging.warning(f"⏳ 時間制限が近づきました ({int(elapsed)}秒経過)。バリューGの処理を中断し、書き込みに移行します。")
+                break
+
         url = row.get("URL", "")
         val_g = row.get("バリューG", "")
         company = row.get("会社名", "")
@@ -291,12 +308,12 @@ def merge_values(value_t, value_g):
 # ------------------------------------------------------------
 # update_バリュー
 # ------------------------------------------------------------
-def update_バリュー(worksheet):
+# ★ 引数に start_time と time_limit を追加
+def update_バリュー(worksheet, start_time=None, time_limit=None):
     logging.info("🔄 update_バリュー 開始")
 
     df = get_as_dataframe(worksheet)
     df = df.astype(object).fillna('')
-
 
     if "バリュー" not in df.columns:
         df["バリュー"] = ""
@@ -304,6 +321,13 @@ def update_バリュー(worksheet):
     update_count = 0
 
     for idx, row in df.iterrows():
+        # ★ タイムアウト判定処理
+        if start_time and time_limit:
+            elapsed = time.time() - start_time
+            if elapsed > time_limit:
+                logging.warning(f"⏳ 時間制限が近づきました ({int(elapsed)}秒経過)。バリューの処理を中断し、書き込みに移行します。")
+                break
+
         val_final = row.get("バリュー", "")
         company = row.get("会社名", "")
         url = row.get("URL", "")
